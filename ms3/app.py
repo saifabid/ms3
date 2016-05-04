@@ -120,6 +120,7 @@ class BucketHandler(BaseHandler):
         self.set_status(200)
 
     def put(self, name):
+        name = get_bucket_name(self.request)
         if self.has_section("versioning"):
             bucket = self.get_bucket(name)
             if not bucket:
@@ -137,6 +138,7 @@ class BucketHandler(BaseHandler):
         self.echo()
 
     def delete(self, name):
+        name = get_bucket_name(self.request)
         bucket = self.get_bucket(name)
         if not bucket:
             return
@@ -160,8 +162,9 @@ class ListAllMyBucketsHandler(BaseHandler):
 
 class ObjectHandler(BaseHandler):
     """ Handle for GET/PUT/HEAD/DELETE on objects """
-    def get(self, name, key):
+    def get(self, key):
         version_id = self.get_argument("versionId", None)
+        name = get_bucket_name(key)
         bucket = self.get_bucket(name)
         if not bucket:
             return
@@ -172,7 +175,8 @@ class ObjectHandler(BaseHandler):
             entry.set_headers(self)
             self.write(entry.read())
 
-    def put(self, name, key):
+    def put(self, key):
+        name = get_bucket_name(self.request)
         bucket = self.get_bucket(name)
         if not bucket:
             return
@@ -207,7 +211,8 @@ class ObjectHandler(BaseHandler):
             entry = bucket.set_entry(key, self.request.body)
             self.set_header('ETag', '"%s"' % entry.etag)
 
-    def head(self, name, key):
+    def head(self, key):
+        name = get_bucket_name(self.request)
         version_id = self.get_argument("versionId", None)
         bucket = self.get_bucket(name)
         if not bucket:
@@ -217,8 +222,11 @@ class ObjectHandler(BaseHandler):
             self.send_error(404)
         else:
             self.set_header('ETag', '"%s"' % entry.etag)
+            if (bucket.versioned):
+                self.set_header('x-amz-version-id', '"%s"' % entry.key.split(key + str("."))[1])
 
-    def delete(self, name, key):
+    def delete(self, key):
+        name = get_bucket_name(self.request)
         version_id = self.get_argument("versionId", None)
         bucket = self.get_bucket(name)
         if not bucket:
@@ -277,11 +285,12 @@ class MS3App(tornado.web.Application):
         general_options.parse_options(args=args)
 
         handlers = [
-            (r"/", ListAllMyBucketsHandler),
-            (r"/([^/]+)/", BucketHandler),
-            (r"/([^/]+)/(.+)", ObjectHandler),
-            (r"/.*", CatchAllHandler)
+            (r".*/([^/]+)/", BucketHandler),
+            (r".*/(.+)", ObjectHandler),
+            (r".*/", ListAllMyBucketsHandler),
+            (r".*/.*", CatchAllHandler)
         ]
+
         settings = {
             'debug': debug or options.debug
         }
@@ -299,6 +308,10 @@ class MS3App(tornado.web.Application):
         tornado.web.Application.__init__(self, handlers, **settings)
         fix_TCPServer_handle_connection()
 
+def get_bucket_name(req):
+    host = req.host
+    # get name from subdomain
+    return host.split(".")[0]
 
 def run(args=None):
     """ Helper for running the app """
