@@ -164,7 +164,7 @@ class ObjectHandler(BaseHandler):
     """ Handle for GET/PUT/HEAD/DELETE on objects """
     def get(self, key):
         version_id = self.get_argument("versionId", None)
-        name = get_bucket_name(key)
+        name = get_bucket_name(self.request)
         bucket = self.get_bucket(name)
         if not bucket:
             return
@@ -210,6 +210,8 @@ class ObjectHandler(BaseHandler):
         else:
             entry = bucket.set_entry(key, self.request.body)
             self.set_header('ETag', '"%s"' % entry.etag)
+            if (bucket.versioned):
+                self.set_header('x-amz-version-id', '"%s"' % entry.key.split(key + str("."))[1])
 
     def head(self, key):
         name = get_bucket_name(self.request)
