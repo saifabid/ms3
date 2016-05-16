@@ -285,8 +285,8 @@ class MS3App(tornado.web.Application):
         general_options.parse_options(args=args)
 
         handlers = [
-            (r".*/([^/]+)/", BucketHandler),
-            (r".*/(.+)", ObjectHandler),
+            (r".*/", BucketHandler),
+            (r".*:[0-9]+/(.*)", ObjectHandler),
             (r".*/", ListAllMyBucketsHandler),
             (r".*/.*", CatchAllHandler)
         ]
