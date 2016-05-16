@@ -169,6 +169,8 @@ class ObjectHandler(BaseHandler):
         if not bucket:
             return
         entry = bucket.get_entry(key, version_id=version_id)
+        if (bucket.versioned):
+                self.set_header('x-amz-version-id', '"%s"' % version_id)
         if not entry:
             self.send_error(404)
         else:
